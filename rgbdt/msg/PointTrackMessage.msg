@@ -1,0 +1,10 @@
+int32 status
+geometry_msgs/Point32 image_coordinates
+geometry_msgs/Point32 camera_coordinates
+geometry_msgs/Point32 world_coordinates
+geometry_msgs/Point32 reprojected_coordinates
+float32 depth_covariance
+float32   posit_error
+int32 parent_index
+int32 age
+int32 landmark_id
