@@ -59,6 +59,30 @@ namespace rgbdt {
 		_model_points=model_points;
 		_image_points=image_points;
 		_normals = normals;
+		_is_tracker = false;
+		_image_rows = image_rows;
+		_image_cols = image_cols;
+		_K=camera_matrix;
+		_T=initial_guess;
+		_num_inliers=0;
+		_error=-1;
+		_inliers_error=-1;
+		_inliers.resize(model_points.size());
+		_errors.resize(model_points.size());
+	}
+
+	void PositSolver::init(const Vector3fVector& model_points, 
+		const Vector3fVector& image_points,
+		int image_rows, int image_cols,
+		const Eigen::Matrix3f& camera_matrix,
+		const Eigen::Isometry3f& initial_guess)
+	{
+		if (model_points.size()!=image_points.size())
+			throw std::runtime_error("num of points in the model and in the image should match");
+		_model_points=model_points;
+		_image_points=image_points;
+		_normals.push_back(Eigen::Vector3f(0.0f, 0.0f, 0.0f));
+		_is_tracker = true;
 		_image_rows = image_rows;
 		_image_cols = image_cols;
 		_K=camera_matrix;
@@ -173,6 +197,59 @@ namespace rgbdt {
 		return true;
 	}
 
+	bool PositSolver::errorAndJacobian(Eigen::Vector3f&  error, Matrix3_6f&  J, 
+		const Eigen::Vector3f& modelPoint, 
+		const Eigen::Vector3f& imagePoint)
+	{
+		J.setZero();
+		// apply the transform to the point
+		Eigen::Vector3f tp=_T*modelPoint;
+
+		// if the points is behind the camera, drop it;
+		if (tp.z()<0)
+			return false;
+
+		float z = tp.z();
+		float iz=1./z;
+
+		// apply the projection to the transformed point
+		Eigen::Vector3f pp = _K*tp;
+			if (pp.z()<=0)
+		return false;
+
+		float iw = 1./pp.z();
+		pp *= iw;
+
+		// if the projected point is outside the image, drop it
+		if (pp.x()<0 || pp.x()>_image_cols ||
+			pp.y()<0 || pp.y()>_image_rows)
+			return false;
+
+		// compute the error given the projection
+		error = pp - imagePoint;
+		if (! _use_depth)
+			error(2)=0;
+
+		// jacobian of the transform part = [ I 2*skew(T*modelPoint) ]
+		Eigen::Matrix<float, 3, 6> Jt;
+		Jt.setZero();
+		Jt.block<3,3>(0,0).setIdentity();
+		Jt.block<3,3>(0,3)=-2*skew(tp);
+
+		// jacobian of the homogeneous division
+		// 1/z   0    -x/z^2
+		// 0     1/z  -y/z^2
+		Eigen::Matrix<float, 3, 3> Jp;
+		Jp << 
+			iz, 0,   -pp.x()*iz,
+			0,   iz, -pp.y()*iz,
+			0,   0,   (_use_depth)?1:0;
+
+		// apply the chain rule and get the damn jacobian
+		J=Jp*_K*Jt;
+		return true;
+	  }
+
 	//! Added normals
 	void PositSolver::linearize(Matrix6f& H,Vector6f& b, bool suppress_outliers)
 	{
@@ -183,30 +260,67 @@ namespace rgbdt {
 		_num_inliers = 0;
 		Vector6f e;
 		Matrix6f J;
-		for (size_t i = 0; i<_model_points.size(); i++)
+
+		if (_is_tracker)
 		{
-			_inliers[i]=false;
-			if (errorAndJacobian(e,J,_model_points[i], _image_points[i]), _normals[i]) 
+			Eigen::Vector3f e;
+			Matrix3_6f J;
+
+			for (size_t i = 0; i<_model_points.size(); i++)
 			{
-				float en = e.squaredNorm();
-				_errors[i]=en;
-				_error += en;
-				float scale = 1;
-				if (en>_max_error)
+				_inliers[i]=false;
+				if (errorAndJacobian(e,J,_model_points[i], _image_points[i]));
 				{
-					scale  = _max_error/en;
-				} else {
-					_inliers[i]=true;
-					_num_inliers++;
-					_inliers_error+=en;
+					float en = e.squaredNorm();
+					_errors[i]=en;
+					_error += en;
+					float scale = 1;
+					if (en>_max_error)
+					{
+						scale  = _max_error/en;
+					} else {
+						_inliers[i]=true;
+						_num_inliers++;
+						_inliers_error+=en;
+					}
+					if(! suppress_outliers || _inliers[i])
+					{
+						H.noalias() += J.transpose()*J*scale;
+						b.noalias() += J.transpose()*e*scale;
+					}
 				}
-				if(! suppress_outliers || _inliers[i])
+			}
+		} else {
+			Vector6f e;
+			Matrix6f J;
+
+			for (size_t i = 0; i<_model_points.size(); i++)
+			{
+				_inliers[i]=false;
+				if (errorAndJacobian(e,J,_model_points[i], _image_points[i], _normals[i]))
 				{
-					H.noalias() += J.transpose()*J*scale;
-					b.noalias() += J.transpose()*e*scale;
+					float en = e.squaredNorm();
+					_errors[i]=en;
+					_error += en;
+					float scale = 1;
+					if (en>_max_error)
+					{
+						scale  = _max_error/en;
+					} else {
+						_inliers[i]=true;
+						_num_inliers++;
+						_inliers_error+=en;
+					}
+					if(! suppress_outliers || _inliers[i])
+					{
+						H.noalias() += J.transpose()*J*scale;
+						b.noalias() += J.transpose()*e*scale;
+					}
 				}
 			}
 		}
+
+
 	}
 
 

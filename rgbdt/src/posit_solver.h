@@ -42,6 +42,13 @@ namespace rgbdt {
 		//! @param initial_guess: transform from camera_to_world
 		void init(const Vector3fVector& model_points, 
 			const Vector3fVector& image_points,
+			const Vector3fVector& normals,
+			int image_rows, int image_cols,
+			const Eigen::Matrix3f& camera_matrix,
+			const Eigen::Isometry3f& initial_guess=Eigen::Isometry3f::Identity());
+
+		void init(const Vector3fVector& model_points, 
+			const Vector3fVector& image_points,
 			int image_rows, int image_cols,
 			const Eigen::Matrix3f& camera_matrix,
 			const Eigen::Isometry3f& initial_guess=Eigen::Isometry3f::Identity());
@@ -95,6 +102,10 @@ namespace rgbdt {
 
 		// computes the reprojection error and the jacobian of a model point
 		// returns false if the point is outside the image plane
+		bool errorAndJacobian(Vector6f&  error, Matrix6f&  J, 
+			const Eigen::Vector3f& modelPoint, 
+			const Eigen::Vector3f& imagePoint,
+			const Eigen::Vector3f& normal);
 		bool errorAndJacobian(Eigen::Vector3f&  error, Matrix3_6f&  J, 
 			const Eigen::Vector3f& modelPoint, 
 			const Eigen::Vector3f& imagePoint);
@@ -112,6 +123,7 @@ namespace rgbdt {
 
 		//! Normals
 		Vector3fVector _normals;
+		bool _is_tracker;
 
 		Eigen::Isometry3f _T; // position of the world w.r.t the camera
 		Eigen::Matrix3f _K;

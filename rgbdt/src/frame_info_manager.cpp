@@ -40,7 +40,7 @@ namespace rgbdt
 	}
 
 
-	//! TODO: Add normal here
+	//! Added normal here (pisit init)
 	bool FrameInfoManager::tryMatch(Eigen::Isometry3f& result,
 		const KeyFrame* current, 
 		const KeyFrame* parent, 
@@ -64,6 +64,7 @@ namespace rgbdt
 
 		solver.init(model_points, 
 			image_points,
+			current->camera_normals, //???
 			current->depth.rows,
 			current->depth.cols,
 			parent->camera_matrix,
