@@ -174,6 +174,7 @@ namespace rgbdt {
 		// apply the chain rule and get the damn jacobian
 		J_reproj=Jp*_K*Jt;
 
+
 		//! Error between normals
 		Eigen::Vector3f norm_error;
 		Matrix3_6f J_normals;
@@ -189,7 +190,7 @@ namespace rgbdt {
 
 		//! Composing error and jacobian
 		J.block<3,6>(0,0) = J_reproj;
-		J.block<3,6>(0,0) = J_normals;
+		J.block<3,6>(3,0) = J_normals;
 
 		error.block<3,1>(0,0) = rep_error;
 		error.block<3,1>(3,0) = norm_error;
@@ -258,8 +259,6 @@ namespace rgbdt {
 		_error = 0;
 		_inliers_error=0;
 		_num_inliers = 0;
-		Vector6f e;
-		Matrix6f J;
 
 		if (_is_tracker)
 		{
@@ -287,6 +286,7 @@ namespace rgbdt {
 					{
 						H.noalias() += J.transpose()*J*scale;
 						b.noalias() += J.transpose()*e*scale;
+
 					}
 				}
 			}
@@ -315,6 +315,11 @@ namespace rgbdt {
 					{
 						H.noalias() += J.transpose()*J*scale;
 						b.noalias() += J.transpose()*e*scale;
+
+						// std::cout << "linearize w/ normals" << endl;
+						// std::cout << "H \n" << H << endl;
+						// std::cout << "b \n" << b << endl;
+						// std::cout << "J \n" << J << endl << endl;
 					}
 				}
 			}

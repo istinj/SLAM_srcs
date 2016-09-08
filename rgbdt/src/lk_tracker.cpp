@@ -410,7 +410,7 @@ namespace rgbdt {
 			image_points[num_correspondences]=current_point.image_coordinates;
 			num_correspondences++;
 
-			// normals.push_back(parent_point.image_normal); //????
+			normals.push_back(parent_point.image_normal); //????
 		}
 		model_points.resize(num_correspondences);
 		image_points.resize(num_correspondences);
@@ -426,6 +426,7 @@ namespace rgbdt {
 		//MOD overload
 		_solver.init(model_points, 
 			image_points,
+			normals,
 			_current_frame.rows,
 			_current_frame.cols,
 			_current_frame_info.camera_matrix,
